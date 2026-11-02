@@ -1,0 +1,392 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Examination Sheet Evaluator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<header>
+    <h1>AI-Assisted Examination Sheet Correction System</h1>
+    <p>A smart assistant for faster and more consistent answer sheet evaluation.</p>
+</header>
+
+<main>
+
+    <section class="welcome">
+        <h2>Welcome, Teacher</h2>
+        <p>Upload the examination documents to begin evaluation.</p>
+    </section>
+
+    <section class="upload-section">
+        <h2>Upload Examination Documents</h2>
+
+        <form action="/upload" method="POST" enctype="multipart/form-data">
+
+            <!-- ANSWER SHEET -->
+            <div class="upload-box">
+                <h3>1. Student Answer Sheet</h3>
+                <p>Upload an existing answer sheet or scan it using the camera.</p>
+
+                <input type="file"
+                       id="answerSheetInput"
+                       name="answer_sheet"
+                       accept=".pdf,image/*"
+                       required>
+
+                <br><br>
+
+                <button type="button" id="scanButton">
+                    Scan Answer Sheet
+                </button>
+
+                <div id="cameraSection" style="display:none; margin-top:20px;">
+
+                    <h3>Camera Preview</h3>
+
+                    <video id="cameraPreview"
+                           autoplay
+                           playsinline
+                           style="width:100%; max-width:450px; border-radius:10px;">
+                    </video>
+
+                    <br><br>
+
+                    <button type="button" id="captureButton">
+                        Capture Answer Sheet
+                    </button>
+
+                    <button type="button" id="stopCameraButton">
+                        Stop Camera
+                    </button>
+
+                    <canvas id="captureCanvas" style="display:none;"></canvas>
+
+                    <div id="previewSection" style="display:none; margin-top:15px;">
+                        <h3>Captured Answer Sheet</h3>
+
+                        <img id="capturedImage"
+                             alt="Captured answer sheet"
+                             style="width:100%; max-width:450px; border-radius:10px;">
+
+                        <p id="captureMessage">
+                            Image attached successfully.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- QUESTION PAPER -->
+            <div class="upload-box">
+                <h3>2. Question Paper</h3>
+                <p>Upload the examination question paper.</p>
+
+                <input type="file"
+                       name="question_paper"
+                       accept=".pdf"
+                       required>
+            </div>
+
+            <!-- MARKING SCHEME -->
+            <div class="upload-box">
+                <h3>3. Answer Key & Marking Scheme</h3>
+                <p>Upload the teacher-provided marking scheme.</p>
+
+                <input type="file"
+                       name="marking_scheme"
+                       accept=".pdf,.docx"
+                       required>
+            </div>
+
+            <div class="actions">
+
+                <button type="submit">
+                    Evaluate Answer Sheet
+                </button>
+
+            </div>
+
+        </form>
+    </section>
+
+    {% if message %}
+        <p class="message">{{ message }}</p>
+    {% endif %}
+
+    {% if summary %}
+
+    <section class="results-section">
+
+        <h2>Examination Evaluation Report</h2>
+        <p class="subtitle">AI-generated assessment for teacher verification</p>
+
+        <div class="summary-grid">
+
+            <div class="summary-card">
+                <p>Total Marks</p>
+                <h2>{{ summary.total_marks }} / {{ summary.maximum_marks }}</h2>
+            </div>
+
+            <div class="summary-card">
+                <p>Percentage</p>
+                <h2>{{ summary.percentage }}%</h2>
+            </div>
+
+            <div class="summary-card">
+                <p>Questions Evaluated</p>
+                <h2>{{ summary.question_count }}</h2>
+            </div>
+
+            <div class="summary-card review-card">
+                <p>Needs Teacher Review</p>
+                <h2>{{ summary.review_count }}</h2>
+            </div>
+
+        </div>
+
+        {% if teacher_review_required %}
+            <div class="review-notice">
+                Teacher verification is required for one or more answers.
+                Please check all flagged questions before finalising marks.
+            </div>
+        {% else %}
+            <div class="success-notice">
+                No questions were flagged for teacher review.
+            </div>
+        {% endif %}
+
+        <h3 class="table-heading">Question-wise Evaluation</h3>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>Marks Awarded</th>
+                        <th>Maximum Marks</th>
+                        <th>Evaluation Explanation</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in question_rows %}
+                    <tr>
+                        <td><strong>{{ row.question }}</strong></td>
+                        <td>{{ row.marks }}</td>
+                        <td>{{ row.maximum }}</td>
+                        <td>{{ row.reasoning }}</td>
+
+                        <td>
+                            {% if row.review %}
+                                <span class="status review-status">
+                                    Needs Review
+                                </span>
+                            {% else %}
+                                <span class="status checked-status">
+                                    Evaluated
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="disclaimer">
+            This report is AI-generated. Final marks should be verified
+            and approved by the teacher.
+        </p>
+
+    </section>
+
+    {% endif %}
+
+    <section class="notice">
+        <h3>Teacher Review Policy</h3>
+        <p>
+            Unclear handwriting, missing pages and uncertain answers
+            should be checked by a teacher before marks are finalised.
+        </p>
+    </section>
+
+</main>
+
+<footer>
+    <p>AI-Assisted Examination Sheet Correction System</p>
+</footer>
+
+<script>
+
+const scanButton = document.getElementById("scanButton");
+const cameraSection = document.getElementById("cameraSection");
+const video = document.getElementById("cameraPreview");
+const canvas = document.getElementById("captureCanvas");
+
+const captureButton = document.getElementById("captureButton");
+const stopCameraButton = document.getElementById("stopCameraButton");
+
+const answerInput = document.getElementById("answerSheetInput");
+const capturedImage = document.getElementById("capturedImage");
+const previewSection = document.getElementById("previewSection");
+
+let cameraStream = null;
+let capturedImageURL = null;
+
+
+// START CAMERA
+scanButton.addEventListener("click", async function () {
+
+    try {
+
+        if (!navigator.mediaDevices ||
+            !navigator.mediaDevices.getUserMedia) {
+
+            alert("Camera access is not supported by this browser.");
+            return;
+        }
+
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+
+            video: {
+                facingMode: "environment"
+            },
+
+            audio: false
+
+        });
+
+        video.srcObject = cameraStream;
+
+        cameraSection.style.display = "block";
+        previewSection.style.display = "none";
+
+    }
+
+    catch (error) {
+
+        console.error("Camera error:", error);
+
+        alert("Unable to access camera. Please allow camera permission.");
+
+    }
+
+});
+
+
+// CAPTURE IMAGE
+captureButton.addEventListener("click", function () {
+
+    if (!video.videoWidth) {
+
+        alert("Camera is not ready. Please wait a moment.");
+        return;
+
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext("2d");
+
+    context.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    canvas.toBlob(function (blob) {
+
+        if (!blob) {
+
+            alert("Image capture failed. Please try again.");
+            return;
+
+        }
+
+        const file = new File(
+
+            [blob],
+
+            "scanned_answer_sheet.jpg",
+
+            {
+                type: "image/jpeg"
+            }
+
+        );
+
+        const dataTransfer = new DataTransfer();
+
+        dataTransfer.items.add(file);
+
+        answerInput.files = dataTransfer.files;
+
+        if (capturedImageURL) {
+            URL.revokeObjectURL(capturedImageURL);
+        }
+
+        capturedImageURL = URL.createObjectURL(blob);
+
+        capturedImage.src = capturedImageURL;
+
+        previewSection.style.display = "block";
+
+        stopCamera();
+
+        alert("Answer sheet captured and attached successfully!");
+
+    }, "image/jpeg", 0.95);
+
+});
+
+
+// STOP CAMERA
+function stopCamera() {
+
+    if (cameraStream) {
+
+        cameraStream.getTracks().forEach(function (track) {
+
+            track.stop();
+
+        });
+
+        cameraStream = null;
+
+    }
+
+    video.srcObject = null;
+
+}
+
+
+// STOP CAMERA BUTTON
+stopCameraButton.addEventListener("click", function () {
+
+    stopCamera();
+
+    cameraSection.style.display = "none";
+
+});
+
+
+// RELEASE CAMERA WHEN PAGE IS CLOSED
+window.addEventListener("beforeunload", function () {
+
+    stopCamera();
+
+});
+
+</script>
+
+</body>
+</html>

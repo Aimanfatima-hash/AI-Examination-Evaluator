@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+venv/
+.venv/
+uploads/
+Results/
+Answer Sheets/
+Ques Paper & Answer Key/
+*.pdf
+*.docx
+*.png
+*.jpg
+*.jpeg
